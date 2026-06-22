@@ -1,0 +1,117 @@
+[
+  {
+    "label": "Emergency: fever with neck stiffness",
+    "patient_id": "P001",
+    "name": "Maria Lopez",
+    "age": 35,
+    "gender": "F",
+    "symptoms": "Persistent headache for 3 days with fever and neck stiffness.",
+    "duration_days": 3,
+    "pain_score": 7,
+    "medical_history": ["Migraines", "Hypertension"],
+    "medications": ["Lisinopril 10mg daily"],
+    "allergies": ["Penicillin"],
+    "selected_red_flags": ["fever", "neck_stiffness"],
+    "primary_care_provider": "Dr. Elena Ramirez",
+    "preferred_language": "English",
+    "visit_type": "Acute symptom triage",
+    "vitals": {
+      "temperature_f": 101.2,
+      "heart_rate": 96,
+      "blood_pressure": "138/86",
+      "oxygen_saturation": 98
+    }
+  },
+  {
+    "label": "Immediate: chest pain and shortness of breath",
+    "patient_id": "P002",
+    "name": "James Carter",
+    "age": 62,
+    "gender": "M",
+    "symptoms": "Chest pain radiating to left arm with shortness of breath and sweating.",
+    "duration_days": 1,
+    "pain_score": 9,
+    "medical_history": ["Coronary artery disease", "Type 2 Diabetes"],
+    "medications": ["Metformin 500mg", "Atorvastatin 40mg"],
+    "allergies": [],
+    "selected_red_flags": ["chest_pain", "shortness_of_breath"],
+    "primary_care_provider": "Dr. Michael Tan",
+    "preferred_language": "English",
+    "visit_type": "Emergency symptom triage",
+    "vitals": {
+      "temperature_f": 98.7,
+      "heart_rate": 112,
+      "blood_pressure": "156/94",
+      "oxygen_saturation": 94
+    }
+  },
+  {
+    "label": "Urgent: vomiting and dehydration risk",
+    "patient_id": "P003",
+    "name": "Aisha Khan",
+    "age": 28,
+    "gender": "F",
+    "symptoms": "Persistent vomiting since yesterday and dizziness when standing.",
+    "duration_days": 2,
+    "pain_score": 4,
+    "medical_history": [],
+    "medications": [],
+    "allergies": ["Ibuprofen"],
+    "selected_red_flags": ["persistent_vomiting"],
+    "primary_care_provider": "Dr. Priya Shah",
+    "preferred_language": "English",
+    "visit_type": "Urgent care triage",
+    "vitals": {
+      "temperature_f": 99.1,
+      "heart_rate": 104,
+      "blood_pressure": "104/68",
+      "oxygen_saturation": 99
+    }
+  },
+  {
+    "label": "Standard: mild follow-up concern",
+    "patient_id": "P004",
+    "name": "Robert Chen",
+    "age": 44,
+    "gender": "M",
+    "symptoms": "Mild recurring knee discomfort after exercise. No swelling or trauma.",
+    "duration_days": 10,
+    "pain_score": 3,
+    "medical_history": ["Osteoarthritis"],
+    "medications": ["Acetaminophen as needed"],
+    "allergies": [],
+    "selected_red_flags": [],
+    "primary_care_provider": "Dr. Laura Green",
+    "preferred_language": "English",
+    "visit_type": "Routine follow-up",
+    "vitals": {
+      "temperature_f": 98.4,
+      "heart_rate": 72,
+      "blood_pressure": "122/78",
+      "oxygen_saturation": 99
+    }
+  },
+  {
+    "label": "Safety hold: allergy conflict",
+    "patient_id": "P005",
+    "name": "Elena Brooks",
+    "age": 39,
+    "gender": "F",
+    "symptoms": "Moderate headache after poor sleep. No other symptoms reported.",
+    "duration_days": 1,
+    "pain_score": 5,
+    "medical_history": ["Seasonal allergies"],
+    "medications": ["Loratadine 10mg"],
+    "allergies": ["Acetaminophen"],
+    "selected_red_flags": [],
+    "primary_care_provider": "Dr. Samuel Brooks",
+    "preferred_language": "English",
+    "visit_type": "Medication safety review",
+    "vitals": {
+      "temperature_f": 98.6,
+      "heart_rate": 78,
+      "blood_pressure": "118/76",
+      "oxygen_saturation": 100
+    }
+  }
+]
