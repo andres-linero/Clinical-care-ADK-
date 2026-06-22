@@ -2,6 +2,69 @@
 
 ## Google ADK + BioGPT Multi-Agent Framework
 
+## Portfolio Demo: Rule-Governed Agent Workflow
+
+This repository includes a Streamlit demo designed for a non-technical
+reviewer. It shows a clinical care coordination workflow with six agent
+roles:
+
+```text
+Patient Intake
+   |
+   v
+Triage Agent
+   |
+   v
+Diagnosis Agent
+   |
+   v
+Treatment Agent
+   |
+   +--> Documentation Agent
+   |
+   +--> Scheduling Agent
+   |
+   v
+Follow-up Agent
+```
+
+Safety-critical decisions are not left to an LLM. The demo uses explicit
+rules for:
+
+- red-flag detection
+- triage urgency
+- escalation
+- medication allergy checks
+- drug interaction checks
+- follow-up timing
+
+The agent layer coordinates the workflow and presents structured handoffs.
+Any clinical diagnosis or treatment output is marked as requiring clinician
+review.
+
+### Run the Streamlit Demo
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+Files used by the demo:
+
+| File | Purpose |
+|------|---------|
+| `streamlit_app.py` | Interactive demo UI |
+| `rule_pipeline.py` | Deterministic workflow logic |
+| `sample_patients.json` | Demo cases for the UI |
+| `triage_agent.py` ... `followup_agent.py` | ADK agent role definitions |
+
+### Why This Design
+
+Clinical workflows need guardrails. In this demo, LLM-style agents are not
+trusted with safety-critical decisions. Instead, the pipeline uses structured
+input and deterministic rules, then passes validated outputs between agent
+steps.
+
 ---
 
 ## 📚 FILE STUDY ORDER

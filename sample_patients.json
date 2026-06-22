@@ -1,0 +1,72 @@
+[
+  {
+    "label": "Emergency: fever with neck stiffness",
+    "patient_id": "P001",
+    "name": "Maria Lopez",
+    "age": 35,
+    "gender": "F",
+    "symptoms": "Persistent headache for 3 days with fever and neck stiffness.",
+    "duration_days": 3,
+    "pain_score": 7,
+    "medical_history": ["Migraines", "Hypertension"],
+    "medications": ["Lisinopril 10mg daily"],
+    "allergies": ["Penicillin"],
+    "selected_red_flags": ["fever", "neck_stiffness"]
+  },
+  {
+    "label": "Immediate: chest pain and shortness of breath",
+    "patient_id": "P002",
+    "name": "James Carter",
+    "age": 62,
+    "gender": "M",
+    "symptoms": "Chest pain radiating to left arm with shortness of breath and sweating.",
+    "duration_days": 1,
+    "pain_score": 9,
+    "medical_history": ["Coronary artery disease", "Type 2 Diabetes"],
+    "medications": ["Metformin 500mg", "Atorvastatin 40mg"],
+    "allergies": [],
+    "selected_red_flags": ["chest_pain", "shortness_of_breath"]
+  },
+  {
+    "label": "Urgent: vomiting and dehydration risk",
+    "patient_id": "P003",
+    "name": "Aisha Khan",
+    "age": 28,
+    "gender": "F",
+    "symptoms": "Persistent vomiting since yesterday and dizziness when standing.",
+    "duration_days": 2,
+    "pain_score": 4,
+    "medical_history": [],
+    "medications": [],
+    "allergies": ["Ibuprofen"],
+    "selected_red_flags": ["persistent_vomiting"]
+  },
+  {
+    "label": "Standard: mild follow-up concern",
+    "patient_id": "P004",
+    "name": "Robert Chen",
+    "age": 44,
+    "gender": "M",
+    "symptoms": "Mild recurring knee discomfort after exercise. No swelling or trauma.",
+    "duration_days": 10,
+    "pain_score": 3,
+    "medical_history": ["Osteoarthritis"],
+    "medications": ["Acetaminophen as needed"],
+    "allergies": [],
+    "selected_red_flags": []
+  },
+  {
+    "label": "Safety hold: allergy conflict",
+    "patient_id": "P005",
+    "name": "Elena Brooks",
+    "age": 39,
+    "gender": "F",
+    "symptoms": "Moderate headache after poor sleep. No other symptoms reported.",
+    "duration_days": 1,
+    "pain_score": 5,
+    "medical_history": ["Seasonal allergies"],
+    "medications": ["Loratadine 10mg"],
+    "allergies": ["Acetaminophen"],
+    "selected_red_flags": []
+  }
+]
