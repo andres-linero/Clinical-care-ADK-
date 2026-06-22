@@ -55,8 +55,12 @@ Files used by the demo:
 |------|---------|
 | `streamlit_app.py` | Interactive demo UI |
 | `rule_pipeline.py` | Deterministic workflow logic |
-| `sample_patients.json` | Demo cases for the UI |
+| `sample_patients.json` | Generated sample patient records loaded into a dataframe |
 | `triage_agent.py` ... `followup_agent.py` | ADK agent role definitions |
+
+The current demo uses generated local records for portability. In a production
+version, that same source-data layer could be replaced by a warehouse table such
+as BigQuery while keeping the rule-governed pipeline interface the same.
 
 ### Why This Design
 

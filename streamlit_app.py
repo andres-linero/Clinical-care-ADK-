@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import streamlit as st
 
 from rule_pipeline import FLAG_LABELS, run_rule_pipeline
@@ -169,6 +170,37 @@ def load_examples() -> list[dict[str, Any]]:
         return json.load(file)
 
 
+def load_patient_dataframe() -> pd.DataFrame:
+    records = load_examples()
+    rows = []
+    for record in records:
+        vitals = record.get("vitals", {})
+        rows.append(
+            {
+                "patient_id": record["patient_id"],
+                "scenario": record["label"],
+                "name": record["name"],
+                "age": record["age"],
+                "gender": record["gender"],
+                "visit_type": record.get("visit_type", ""),
+                "symptoms": record["symptoms"],
+                "duration_days": record["duration_days"],
+                "pain_score": record["pain_score"],
+                "medical_history": ", ".join(record.get("medical_history", [])),
+                "medications": ", ".join(record.get("medications", [])),
+                "allergies": ", ".join(record.get("allergies", [])),
+                "red_flags": ", ".join(FLAG_LABELS.get(flag, flag) for flag in record.get("selected_red_flags", [])),
+                "temperature_f": vitals.get("temperature_f"),
+                "heart_rate": vitals.get("heart_rate"),
+                "blood_pressure": vitals.get("blood_pressure"),
+                "oxygen_saturation": vitals.get("oxygen_saturation"),
+                "primary_care_provider": record.get("primary_care_provider", ""),
+                "preferred_language": record.get("preferred_language", ""),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def without_label(case: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in case.items() if key != "label"}
 
@@ -253,6 +285,7 @@ def main() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
 
     examples = load_examples()
+    patient_df = load_patient_dataframe()
     patient_ids = [case["patient_id"] for case in examples]
 
     with st.sidebar:
@@ -280,7 +313,7 @@ def main() -> None:
     )
 
     with st.container(border=True):
-        st.markdown("### Patient Scenario & Intake")
+        st.markdown("### Patient Record Loaded From Sample Data")
         st.markdown(
             f"""
             <div class="summary-card">
@@ -292,137 +325,40 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-        row1 = st.columns([1, 1.2, 0.8, 0.8])
-        with row1[0]:
-            patient_id = st.text_input(
-                "Patient ID",
-                selected_case["patient_id"],
-                disabled=True,
-                key=f"patient_id_{key}",
-            )
-        with row1[1]:
-            name = st.text_input("Name", selected_case["name"], key=f"name_{key}")
-        with row1[2]:
-            age = st.number_input("Age", min_value=0, max_value=120, value=int(selected_case["age"]), key=f"age_{key}")
-        with row1[3]:
-            gender_options = ["F", "M", "Other", "Not specified"]
-            gender = st.selectbox(
-                "Gender",
-                gender_options,
-                index=gender_options.index(selected_case["gender"]) if selected_case["gender"] in gender_options else 3,
-                key=f"gender_{key}",
-            )
+        source_cols = st.columns([1, 1, 1, 1])
+        with source_cols[0]:
+            st.metric("Source", "sample_patients")
+        with source_cols[1]:
+            st.metric("Rows", len(patient_df))
+        with source_cols[2]:
+            st.metric("Active Record", key)
+        with source_cols[3]:
+            st.metric("Decision Mode", "Rules")
 
-        symptoms = st.text_area("Presenting symptoms", selected_case["symptoms"], height=90, key=f"symptoms_{key}")
+        st.caption(
+            "Demo data is generated locally as a dataframe. In production this layer "
+            "would be replaced by a warehouse table such as BigQuery."
+        )
 
-        row2 = st.columns([0.8, 1.2, 1.2, 1.2])
-        with row2[0]:
-            duration_days = st.number_input(
-                "Duration in days",
-                min_value=0,
-                max_value=365,
-                value=int(selected_case["duration_days"]),
-                key=f"duration_{key}",
-            )
-        with row2[1]:
-            pain_score = st.slider(
-                "Pain score",
-                min_value=0,
-                max_value=10,
-                value=int(selected_case["pain_score"]),
-                key=f"pain_{key}",
-            )
-        with row2[2]:
-            primary_care_provider = st.text_input(
-                "Primary care provider",
-                selected_case.get("primary_care_provider", "Unassigned"),
-                key=f"provider_{key}",
-            )
-        with row2[3]:
-            visit_type = st.text_input(
-                "Visit type",
-                selected_case.get("visit_type", "New concern"),
-                key=f"visit_type_{key}",
-            )
-
-        row3 = st.columns([1, 1, 1])
-        with row3[0]:
-            preferred_language = st.text_input(
-                "Preferred language",
-                selected_case.get("preferred_language", "English"),
-                key=f"language_{key}",
-            )
-        with row3[1]:
-            medical_history = split_lines(
-                st.text_area(
-                    "Medical history",
-                    ", ".join(selected_case["medical_history"]),
-                    height=80,
-                    key=f"history_{key}",
-                )
-            )
-        with row3[2]:
-            medications = split_lines(
-                st.text_area(
-                    "Current medications",
-                    ", ".join(selected_case["medications"]),
-                    height=80,
-                    key=f"meds_{key}",
-                )
-            )
-
-        row4 = st.columns([1, 2])
-        with row4[0]:
-            allergies = split_lines(
-                st.text_area(
-                    "Allergies",
-                    ", ".join(selected_case["allergies"]),
-                    height=80,
-                    key=f"allergies_{key}",
-                )
-            )
-        with row4[1]:
-            selected_flags = st.multiselect(
-                "Structured red flags",
-                options=list(FLAG_LABELS.keys()),
-                default=selected_case["selected_red_flags"],
-                format_func=lambda flag: FLAG_LABELS[flag],
-                key=f"flags_{key}",
-            )
-
-        vitals_seed = selected_case.get("vitals", {})
-        row5 = st.columns(4)
-        with row5[0]:
-            temperature_f = st.number_input(
-                "Temperature F",
-                min_value=90.0,
-                max_value=110.0,
-                value=float(vitals_seed.get("temperature_f", 98.6)),
-                step=0.1,
-                key=f"temp_{key}",
-            )
-        with row5[1]:
-            heart_rate = st.number_input(
-                "Heart rate",
-                min_value=30,
-                max_value=220,
-                value=int(vitals_seed.get("heart_rate", 76)),
-                key=f"hr_{key}",
-            )
-        with row5[2]:
-            blood_pressure = st.text_input(
-                "Blood pressure",
-                vitals_seed.get("blood_pressure", "120/80"),
-                key=f"bp_{key}",
-            )
-        with row5[3]:
-            oxygen_saturation = st.number_input(
-                "Oxygen saturation",
-                min_value=50,
-                max_value=100,
-                value=int(vitals_seed.get("oxygen_saturation", 99)),
-                key=f"spo2_{key}",
-            )
+    patient_id = selected_case["patient_id"]
+    name = selected_case["name"]
+    age = int(selected_case["age"])
+    gender = selected_case["gender"]
+    symptoms = selected_case["symptoms"]
+    duration_days = int(selected_case["duration_days"])
+    pain_score = int(selected_case["pain_score"])
+    medical_history = selected_case["medical_history"]
+    medications = selected_case["medications"]
+    allergies = selected_case["allergies"]
+    selected_flags = selected_case["selected_red_flags"]
+    primary_care_provider = selected_case.get("primary_care_provider", "Unassigned")
+    preferred_language = selected_case.get("preferred_language", "English")
+    visit_type = selected_case.get("visit_type", "New concern")
+    vitals_seed = selected_case.get("vitals", {})
+    temperature_f = float(vitals_seed.get("temperature_f", 98.6))
+    heart_rate = int(vitals_seed.get("heart_rate", 76))
+    blood_pressure = vitals_seed.get("blood_pressure", "120/80")
+    oxygen_saturation = int(vitals_seed.get("oxygen_saturation", 99))
 
     patient = {
         "patient_id": patient_id,
@@ -659,6 +595,15 @@ def main() -> None:
         st.code(documentation["soap_note"], language="text")
 
     with tab_data:
+        st.markdown("### Sample Source Table")
+        st.caption("Generated local dataframe. This is the layer that could be swapped for BigQuery.")
+        st.dataframe(patient_df, use_container_width=True, hide_index=True)
+
+        st.markdown("### Active Patient Row")
+        active_row = patient_df[patient_df["patient_id"] == key]
+        st.dataframe(active_row, use_container_width=True, hide_index=True)
+
+        st.markdown("### Pipeline Payload")
         st.json(result)
 
 
