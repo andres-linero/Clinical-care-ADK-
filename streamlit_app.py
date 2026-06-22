@@ -416,7 +416,7 @@ def main() -> None:
         [
             "Patient Profile",
             "Triage Rules",
-            "Sandbox Agent",
+            "Logic Tester",
             "Agent Workflow",
             "Care Plan",
             "Documentation",
@@ -516,7 +516,7 @@ def main() -> None:
         active_explanation = explain_triage_decision(patient)
         st.markdown(
             summary_card(
-                "Selected Patient Explanation",
+                "Selected Patient Logic",
                 active_explanation["why"],
                 [f"Level {active_explanation['urgency_level']}", active_explanation["urgency_label"]],
                 "danger" if active_explanation["urgency_level"] <= 2 else "warn" if active_explanation["urgency_level"] == 3 else "ok",
@@ -524,9 +524,49 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-        st.markdown("#### Production Rule Trace")
-        st.caption("Every safety-critical triage rule is evaluated explicitly. This is why the workflow can explain Level 4 vs Level 2.")
-        st.dataframe(pd.DataFrame(active_explanation["full_trace"]), use_container_width=True, hide_index=True)
+        reason_cols = st.columns([1, 1])
+        with reason_cols[0]:
+            st.markdown(
+                f"""
+                <div class="profile-card">
+                    <div class="card-title">Parameters Used For Triage</div>
+                    <div class="kv">
+                        <div class="key">Patient ID</div><div>{esc(patient["patient_id"])}</div>
+                        <div class="key">Age</div><div>{esc(patient["age"])}</div>
+                        <div class="key">Symptoms</div><div>{esc(patient["symptoms"])}</div>
+                        <div class="key">Duration</div><div>{esc(patient["duration_days"])} day(s)</div>
+                        <div class="key">Pain score</div><div>{esc(patient["pain_score"])}/10</div>
+                    </div>
+                    <div class="card-label" style="margin-top:0.8rem;">Detected Red Flags</div>
+                    {pills(triage["red_flags"], "danger", "None detected")}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with reason_cols[1]:
+            blockers = treatment["safety_checks"]["blockers"]
+            warnings = treatment["safety_checks"]["warnings"]
+            st.markdown(
+                f"""
+                <div class="profile-card">
+                    <div class="card-title">Parameters Used For Medication Safety</div>
+                    <div class="card-label">Current Medications</div>
+                    {pills(patient["medications"], "warn", "None listed")}
+                    <div class="card-label" style="margin-top:0.8rem;">Allergies</div>
+                    {pills(patient["allergies"], "danger", "No known allergies")}
+                    <div class="card-label" style="margin-top:0.8rem;">Medication Draft</div>
+                    {pills(treatment["proposed_medications"], "warn", "No medication draft")}
+                    <div class="card-label" style="margin-top:0.8rem;">Why blocked or allowed</div>
+                    {pills([b.get("action", str(b)) for b in blockers], "danger", "No blockers")}
+                    {pills([w.get("warning", str(w)) for w in warnings], "warn", "No warnings")}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("#### Printed Rule Logic")
+        st.caption("Every safety-critical triage rule is evaluated explicitly. This table is the reason behind Level 2, Level 3, or Level 4.")
+        st.dataframe(pd.DataFrame(active_explanation["full_trace"]), width="stretch", hide_index=True)
 
         if active_explanation["rules_not_met_for_level_2"]:
             st.markdown("#### Why this did not become Level 2")
@@ -536,31 +576,31 @@ def main() -> None:
             )
 
         st.divider()
-        st.markdown("### Sandbox Agent")
+        st.markdown("### Add A New Case And Ask For Reasoning")
         st.caption(
-            "Use this to test new patient wording and prompts. The sandbox response is explanatory only; it cannot override production rules."
+            "Use this to test a new patient ID and symptoms. The answer explains what the model-style reasoning would say, while the rule output remains the source of truth."
         )
 
         sandbox_cols = st.columns([0.7, 0.7, 0.8, 1.8])
         with sandbox_cols[0]:
-            sandbox_patient_id = st.text_input("Sandbox patient ID", "NEW-001")
+            sandbox_patient_id = st.text_input("New patient ID", "NEW-001")
         with sandbox_cols[1]:
-            sandbox_age = st.number_input("Sandbox age", min_value=0, max_value=120, value=42)
+            sandbox_age = st.number_input("Age", min_value=0, max_value=120, value=42)
         with sandbox_cols[2]:
-            sandbox_pain = st.slider("Sandbox pain score", 0, 10, 4)
+            sandbox_pain = st.slider("Pain score", 0, 10, 4)
         with sandbox_cols[3]:
             sandbox_prompt = st.text_input(
                 "Prompt to test",
-                "Explain why this patient is or is not Level 2.",
+                "Explain the triage level and any medication safety concerns.",
             )
 
         sandbox_symptoms = st.text_area(
-            "Sandbox symptoms",
+            "Symptoms",
             "Mild cough and runny nose for two days. Patient is stable and speaking comfortably.",
             height=85,
         )
         sandbox_flags = st.multiselect(
-            "Sandbox structured red flags",
+            "Structured red flags",
             options=list(FLAG_LABELS.keys()),
             default=[],
             format_func=lambda flag: FLAG_LABELS[flag],
@@ -606,16 +646,16 @@ def main() -> None:
         with s2:
             st.markdown(
                 summary_card(
-                    "Sandbox LLM-Style Response",
+                    "Model-Style Answer",
                     sandbox_result["sandbox_agent_response"],
-                    ["Non-authoritative", "Explainability only"],
+                    ["Reasoning answer", "Rules stay source of truth"],
                     "info",
                 ),
                 unsafe_allow_html=True,
             )
 
-        st.markdown("#### Sandbox Rule Trace")
-        st.dataframe(pd.DataFrame(sandbox_result["rule_trace"]), use_container_width=True, hide_index=True)
+        st.markdown("#### New Case Rule Logic")
+        st.dataframe(pd.DataFrame(sandbox_result["rule_trace"]), width="stretch", hide_index=True)
 
     with tab_workflow:
         st.markdown(
@@ -715,11 +755,11 @@ def main() -> None:
     with tab_data:
         st.markdown("### Sample Source Table")
         st.caption("Generated local dataframe. This is the layer that could be swapped for BigQuery.")
-        st.dataframe(patient_df, use_container_width=True, hide_index=True)
+        st.dataframe(patient_df, width="stretch", hide_index=True)
 
         st.markdown("### Active Patient Row")
         active_row = patient_df[patient_df["patient_id"] == key]
-        st.dataframe(active_row, use_container_width=True, hide_index=True)
+        st.dataframe(active_row, width="stretch", hide_index=True)
 
         st.markdown("### Pipeline Payload")
         st.json(result)

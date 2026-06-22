@@ -63,9 +63,10 @@ The current demo uses generated local records for portability. In a production
 version, that same source-data layer could be replaced by a warehouse table such
 as BigQuery while keeping the rule-governed pipeline interface the same.
 
-The `Sandbox Agent` tab lets reviewers test new symptom wording and patient IDs.
-It shows a non-authoritative LLM-style explanation next to the actual
-deterministic rule trace, making it clear why a patient is Level 2, 3, or 4.
+The `Logic Tester` tab lets reviewers test new symptom wording and patient IDs.
+It prints the parameters, medication safety checks, model-style answer, and the
+actual deterministic rule trace, making it clear why a patient is Level 2, 3,
+or 4.
 
 ### Why This Design
 
