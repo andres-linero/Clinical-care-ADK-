@@ -73,6 +73,10 @@ class PatientIntake:
     medications: list[str] = field(default_factory=list)
     allergies: list[str] = field(default_factory=list)
     selected_red_flags: list[str] = field(default_factory=list)
+    primary_care_provider: str = "Unassigned"
+    preferred_language: str = "English"
+    visit_type: str = "New concern"
+    vitals: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -337,6 +341,7 @@ Pain score: {patient.pain_score}/10
 OBJECTIVE
 Rule-based urgency: Level {triage.urgency_level} - {triage.urgency_label}
 Red flags: {", ".join(triage.red_flags) if triage.red_flags else "None detected"}
+Vitals: {patient.vitals if patient.vitals else "Not captured in demo intake"}
 
 ASSESSMENT
 Differential focus: {", ".join(diagnosis.differential_focus)}
