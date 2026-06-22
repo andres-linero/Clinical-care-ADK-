@@ -253,7 +253,21 @@ def main() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
 
     examples = load_examples()
-    labels = [case["label"] for case in examples]
+    patient_ids = [case["patient_id"] for case in examples]
+
+    with st.sidebar:
+        st.header("Patient Queue")
+        selected_patient_id = st.radio(
+            "Active patient ID",
+            patient_ids,
+            label_visibility="collapsed",
+        )
+        st.caption("Select the patient record to run through the workflow.")
+
+    selected_record = next(case for case in examples if case["patient_id"] == selected_patient_id)
+    selected_label = selected_record["label"]
+    selected_case = without_label(selected_record)
+    key = selected_case["patient_id"]
 
     st.markdown(
         """
@@ -267,13 +281,25 @@ def main() -> None:
 
     with st.container(border=True):
         st.markdown("### Patient Scenario & Intake")
-        selected_label = st.selectbox("Patient scenario", labels)
-        selected_case = without_label(next(case for case in examples if case["label"] == selected_label))
-        key = selected_case["patient_id"]
+        st.markdown(
+            f"""
+            <div class="summary-card">
+                <div class="card-label">Selected Patient ID</div>
+                <div class="metric-value">{esc(key)}</div>
+                <div class="soft" style="margin-top:0.35rem;">{esc(selected_label)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         row1 = st.columns([1, 1.2, 0.8, 0.8])
         with row1[0]:
-            patient_id = st.text_input("Patient ID", selected_case["patient_id"], key=f"patient_id_{key}")
+            patient_id = st.text_input(
+                "Patient ID",
+                selected_case["patient_id"],
+                disabled=True,
+                key=f"patient_id_{key}",
+            )
         with row1[1]:
             name = st.text_input("Name", selected_case["name"], key=f"name_{key}")
         with row1[2]:
