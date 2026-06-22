@@ -37,6 +37,7 @@ rules for:
 - medication allergy checks
 - drug interaction checks
 - follow-up timing
+- sandbox prompt testing for explainability
 
 The agent layer coordinates the workflow and presents structured handoffs.
 Any clinical diagnosis or treatment output is marked as requiring clinician
@@ -61,6 +62,10 @@ Files used by the demo:
 The current demo uses generated local records for portability. In a production
 version, that same source-data layer could be replaced by a warehouse table such
 as BigQuery while keeping the rule-governed pipeline interface the same.
+
+The `Sandbox Agent` tab lets reviewers test new symptom wording and patient IDs.
+It shows a non-authoritative LLM-style explanation next to the actual
+deterministic rule trace, making it clear why a patient is Level 2, 3, or 4.
 
 ### Why This Design
 

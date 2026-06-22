@@ -15,7 +15,12 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from rule_pipeline import FLAG_LABELS, run_rule_pipeline
+from rule_pipeline import (
+    FLAG_LABELS,
+    explain_triage_decision,
+    run_rule_pipeline,
+    run_sandbox_triage_agent,
+)
 
 
 DATA_PATH = Path(__file__).with_name("sample_patients.json")
@@ -407,8 +412,16 @@ def main() -> None:
         with col:
             st.markdown(card, unsafe_allow_html=True)
 
-    tab_profile, tab_triage, tab_workflow, tab_care, tab_note, tab_data = st.tabs(
-        ["Patient Profile", "Triage Rules", "Agent Workflow", "Care Plan", "Documentation", "Data"]
+    tab_profile, tab_triage, tab_sandbox, tab_workflow, tab_care, tab_note, tab_data = st.tabs(
+        [
+            "Patient Profile",
+            "Triage Rules",
+            "Sandbox Agent",
+            "Agent Workflow",
+            "Care Plan",
+            "Documentation",
+            "Data",
+        ]
     )
 
     with tab_profile:
@@ -498,6 +511,111 @@ def main() -> None:
                 """,
                 unsafe_allow_html=True,
             )
+
+    with tab_sandbox:
+        active_explanation = explain_triage_decision(patient)
+        st.markdown(
+            summary_card(
+                "Selected Patient Explanation",
+                active_explanation["why"],
+                [f"Level {active_explanation['urgency_level']}", active_explanation["urgency_label"]],
+                "danger" if active_explanation["urgency_level"] <= 2 else "warn" if active_explanation["urgency_level"] == 3 else "ok",
+            ),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("#### Production Rule Trace")
+        st.caption("Every safety-critical triage rule is evaluated explicitly. This is why the workflow can explain Level 4 vs Level 2.")
+        st.dataframe(pd.DataFrame(active_explanation["full_trace"]), use_container_width=True, hide_index=True)
+
+        if active_explanation["rules_not_met_for_level_2"]:
+            st.markdown("#### Why this did not become Level 2")
+            st.write(
+                "The following Level 2 rules did not match the structured data: "
+                + ", ".join(active_explanation["rules_not_met_for_level_2"])
+            )
+
+        st.divider()
+        st.markdown("### Sandbox Agent")
+        st.caption(
+            "Use this to test new patient wording and prompts. The sandbox response is explanatory only; it cannot override production rules."
+        )
+
+        sandbox_cols = st.columns([0.7, 0.7, 0.8, 1.8])
+        with sandbox_cols[0]:
+            sandbox_patient_id = st.text_input("Sandbox patient ID", "NEW-001")
+        with sandbox_cols[1]:
+            sandbox_age = st.number_input("Sandbox age", min_value=0, max_value=120, value=42)
+        with sandbox_cols[2]:
+            sandbox_pain = st.slider("Sandbox pain score", 0, 10, 4)
+        with sandbox_cols[3]:
+            sandbox_prompt = st.text_input(
+                "Prompt to test",
+                "Explain why this patient is or is not Level 2.",
+            )
+
+        sandbox_symptoms = st.text_area(
+            "Sandbox symptoms",
+            "Mild cough and runny nose for two days. Patient is stable and speaking comfortably.",
+            height=85,
+        )
+        sandbox_flags = st.multiselect(
+            "Sandbox structured red flags",
+            options=list(FLAG_LABELS.keys()),
+            default=[],
+            format_func=lambda flag: FLAG_LABELS[flag],
+        )
+
+        sandbox_patient = {
+            "patient_id": sandbox_patient_id,
+            "name": "Sandbox Patient",
+            "age": int(sandbox_age),
+            "gender": "Not specified",
+            "symptoms": sandbox_symptoms,
+            "duration_days": 2,
+            "pain_score": int(sandbox_pain),
+            "medical_history": [],
+            "medications": [],
+            "allergies": [],
+            "selected_red_flags": sandbox_flags,
+            "primary_care_provider": "Sandbox",
+            "preferred_language": "English",
+            "visit_type": "Sandbox triage test",
+            "vitals": {},
+        }
+        sandbox_result = run_sandbox_triage_agent(sandbox_patient, sandbox_prompt)
+
+        s1, s2 = st.columns([1, 1])
+        with s1:
+            st.markdown(
+                summary_card(
+                    "Production Rule Result",
+                    sandbox_result["production_result"]["why"],
+                    [
+                        f"Level {sandbox_result['production_result']['urgency_level']}",
+                        sandbox_result["production_result"]["urgency_label"],
+                    ],
+                    "danger"
+                    if sandbox_result["production_result"]["urgency_level"] <= 2
+                    else "warn"
+                    if sandbox_result["production_result"]["urgency_level"] == 3
+                    else "ok",
+                ),
+                unsafe_allow_html=True,
+            )
+        with s2:
+            st.markdown(
+                summary_card(
+                    "Sandbox LLM-Style Response",
+                    sandbox_result["sandbox_agent_response"],
+                    ["Non-authoritative", "Explainability only"],
+                    "info",
+                ),
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("#### Sandbox Rule Trace")
+        st.dataframe(pd.DataFrame(sandbox_result["rule_trace"]), use_container_width=True, hide_index=True)
 
     with tab_workflow:
         st.markdown(

@@ -220,6 +220,153 @@ def run_triage(patient: PatientIntake) -> TriageResult:
     )
 
 
+def build_triage_rule_trace(patient: PatientIntake) -> list[dict[str, Any]]:
+    """Return every triage rule evaluation for explainability/debugging."""
+    flags = set(detect_red_flags(patient))
+    trace = []
+
+    def add(name: str, matched: bool, effect: str, evidence: str) -> None:
+        trace.append(
+            {
+                "rule": name,
+                "matched": matched,
+                "effect": effect,
+                "evidence": evidence,
+            }
+        )
+
+    immediate_flags = {
+        "severe_bleeding",
+        "loss_of_consciousness",
+        "stroke_signs",
+        "severe_allergic_reaction",
+        "suicidal_ideation",
+        "severe_trauma",
+    }
+    add(
+        "Immediate escalation red flag",
+        bool(flags.intersection(immediate_flags)),
+        "Set urgency to Level 1",
+        ", ".join(sorted(flags.intersection(immediate_flags))) or "No immediate red flag found",
+    )
+    add(
+        "Chest pain with shortness of breath",
+        {"chest_pain", "shortness_of_breath"}.issubset(flags),
+        "Set urgency to Level 1",
+        "Both chest pain and shortness of breath detected"
+        if {"chest_pain", "shortness_of_breath"}.issubset(flags)
+        else "Combination not detected",
+    )
+    add(
+        "Single cardiopulmonary red flag",
+        bool({"chest_pain", "shortness_of_breath"}.intersection(flags)),
+        "Set urgency to Level 2",
+        ", ".join(sorted({"chest_pain", "shortness_of_breath"}.intersection(flags)))
+        or "No cardiopulmonary red flag detected",
+    )
+    add(
+        "Fever with neck stiffness",
+        {"fever", "neck_stiffness"}.issubset(flags),
+        "Set urgency to Level 2",
+        "Fever and neck stiffness detected"
+        if {"fever", "neck_stiffness"}.issubset(flags)
+        else "Combination not detected",
+    )
+    add(
+        "Severe headache with systemic or neurologic concern",
+        "severe_headache" in flags and bool({"fever", "confusion"}.intersection(flags)),
+        "Set urgency to Level 2",
+        "Severe headache plus fever/confusion detected"
+        if "severe_headache" in flags and bool({"fever", "confusion"}.intersection(flags))
+        else "Combination not detected",
+    )
+    add(
+        "Persistent vomiting",
+        "persistent_vomiting" in flags,
+        "Set urgency to Level 3",
+        "Persistent vomiting detected" if "persistent_vomiting" in flags else "Not detected",
+    )
+    add(
+        "Older adult with red-flag symptom",
+        patient.age >= 65 and bool(flags),
+        "Raise routine case to Level 3",
+        f"Age {patient.age} with detected flags" if patient.age >= 65 and flags else "Condition not met",
+    )
+
+    return trace
+
+
+def explain_triage_decision(patient_data: dict[str, Any]) -> dict[str, Any]:
+    """Explain why the deterministic triage engine assigned its urgency level."""
+    patient = PatientIntake(**patient_data)
+    triage = run_triage(patient)
+    trace = build_triage_rule_trace(patient)
+    matched = [item for item in trace if item["matched"]]
+    blocked_level_2_rules = [
+        item["rule"]
+        for item in trace
+        if "Level 2" in item["effect"] and not item["matched"]
+    ]
+
+    if triage.urgency_level <= 2:
+        why = (
+            f"The patient is Level {triage.urgency_level} because at least one "
+            f"escalation rule matched: {', '.join(triage.rule_hits)}."
+        )
+    elif triage.urgency_level == 3:
+        why = (
+            "The patient is Level 3 because an urgent rule matched, but no "
+            "Level 1 or Level 2 escalation combination matched."
+        )
+    else:
+        why = (
+            "The patient is Level 4 because no immediate, emergency, or urgent "
+            "escalation rule matched the available structured data."
+        )
+
+    return {
+        "urgency_level": triage.urgency_level,
+        "urgency_label": triage.urgency_label,
+        "why": why,
+        "matched_rules": matched,
+        "rules_not_met_for_level_2": blocked_level_2_rules,
+        "full_trace": trace,
+    }
+
+
+def run_sandbox_triage_agent(patient_data: dict[str, Any], user_prompt: str) -> dict[str, Any]:
+    """
+    Non-authoritative sandbox response for prompt experimentation.
+
+    This intentionally does not call production triage decisions through an LLM.
+    It shows what an explanation agent would say while keeping the real urgency
+    owned by deterministic rules.
+    """
+    explanation = explain_triage_decision(patient_data)
+    patient = PatientIntake(**patient_data)
+    red_flags = detect_red_flags(patient)
+    draft = (
+        f"Sandbox response for {patient.patient_id}: Based on the provided prompt, "
+        f"I would summarize the case as: {patient.symptoms} The deterministic "
+        f"triage engine assigns Level {explanation['urgency_level']} "
+        f"({explanation['urgency_label']}). {explanation['why']} "
+        f"Detected red flags: {', '.join(red_flags) if red_flags else 'none'}. "
+        "This sandbox text is explanatory only and cannot override the rule result."
+    )
+
+    return {
+        "sandbox_patient_id": patient.patient_id,
+        "user_prompt": user_prompt,
+        "production_result": {
+            "urgency_level": explanation["urgency_level"],
+            "urgency_label": explanation["urgency_label"],
+            "why": explanation["why"],
+        },
+        "sandbox_agent_response": draft,
+        "rule_trace": explanation["full_trace"],
+    }
+
+
 def run_diagnosis(patient: PatientIntake, triage: TriageResult) -> DiagnosisResult:
     symptoms_lower = patient.symptoms.lower()
     focus = []
