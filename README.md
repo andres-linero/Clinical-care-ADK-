@@ -1,15 +1,31 @@
-# Clinical Care Coordination System
+# Clinical Care ADK Workflow
 
-## Google ADK + BioGPT Multi-Agent Framework
+A rule-governed multi-agent clinical care coordination prototype.
 
-## Portfolio Demo: Rule-Governed Agent Workflow
+This project demonstrates how specialized agents can coordinate a patient case
+from intake through triage, diagnosis drafting, treatment safety checks,
+documentation, scheduling, and follow-up. The system returns different workflow
+outputs depending on the patient's status, risk level, medications, allergies,
+and detected red flags.
 
-This repository includes a Streamlit demo designed for a non-technical
-reviewer. It shows a clinical care coordination workflow with six agent
-roles:
+The demo is built to be understandable by both technical and non-technical
+reviewers. It includes a Streamlit interface, generated sample patient records,
+agent handoffs, and a logic tester that explains why each patient receives a
+specific triage level.
+
+Short version:
+
+> This is a clinical care coordination agent workflow. The agents coordinate the
+> work, but safety-critical decisions are handled by explicit rules so the system
+> can explain why a patient was escalated, routed, held for safety review, or
+> cleared for the next step.
+
+## What It Does
+
+The workflow starts from a patient record and produces a coordinated care plan.
 
 ```text
-Patient Intake
+Patient Record
    |
    v
 Triage Agent
@@ -28,358 +44,138 @@ Treatment Agent
 Follow-up Agent
 ```
 
-Safety-critical decisions are not left to an LLM. The demo uses explicit
-rules for:
+Each agent owns a specific part of the workflow and passes structured output to
+the next step. The output changes based on patient state. For example:
+
+- a patient with fever and neck stiffness is escalated for emergency clinical review
+- a patient with chest pain and shortness of breath is escalated immediately
+- a stable patient with no escalation rule match proceeds through a standard workflow
+- a medication allergy conflict creates a safety review hold
+
+## Why This Is Rule-Governed
+
+Clinical workflows should not let an LLM freely decide safety-critical outcomes.
+In this project, the model-style layer is used for explanation and workflow
+presentation, while clinical risk decisions are controlled by deterministic
+rules.
+
+Rules own:
 
 - red-flag detection
-- triage urgency
-- escalation
+- triage level
+- escalation requirement
 - medication allergy checks
 - drug interaction checks
 - follow-up timing
-- sandbox prompt testing for explainability
 
-The agent layer coordinates the workflow and presents structured handoffs.
-Any clinical diagnosis or treatment output is marked as requiring clinician
-review.
+The app also includes a `Logic Tester` tab. This lets a reviewer add a new test
+case, ask a prompt, and see:
 
-### Run the Streamlit Demo
+- which patient parameters were used
+- which triage rules matched
+- which escalation rules did not match
+- why the patient is Level 2, 3, or 4
+- why a medication was allowed or blocked
+- a model-style explanation that does not override the deterministic result
+
+## Agent Delegation
+
+| Agent | Responsibility | Output Passed Forward |
+|------|----------------|-----------------------|
+| Triage Agent | Evaluates symptoms, red flags, urgency, and escalation rules | `urgency_level`, `red_flags`, `next_step`, `rule_hits` |
+| Diagnosis Agent | Creates a draft differential focus from structured triage context | `differential_focus`, `clinician_review_required` |
+| Treatment Agent | Drafts low-risk treatment actions and runs safety checks | `proposed_medications`, `safety_checks`, `status` |
+| Documentation Agent | Converts structured workflow data into a SOAP-style clinical note | `soap_note`, `draft_requires_signature` |
+| Scheduling Agent | Chooses timing and routing based on urgency | `appointment_type`, `recommended_timeframe`, `escalation_channel` |
+| Follow-up Agent | Creates monitoring cadence and trigger conditions | `monitoring_interval`, `next_check_in`, `triggers` |
+
+The agents are coordinated by the pipeline rather than operating independently.
+That means each step receives the previous step's structured result and uses it
+to decide what should happen next.
+
+## Demo UI
+
+Run the Streamlit demo:
 
 ```bash
 pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-Files used by the demo:
+The Streamlit app includes:
+
+- `Patient Queue`: select a patient ID from generated sample records
+- `Patient Profile`: patient demographics, vitals, symptoms, medical history, medications, and allergies
+- `Triage Rules`: the deterministic triage result and rule evidence
+- `Logic Tester`: add new cases and inspect the reasoning behind triage/safety outcomes
+- `Agent Workflow`: step-by-step agent handoff view
+- `Care Plan`: diagnosis draft, treatment safety, scheduling, and follow-up
+- `Documentation`: generated SOAP-style note
+- `Data`: source dataframe, active patient row, and full pipeline payload
+
+## Data Source
+
+The current demo uses generated local patient records in `sample_patients.json`.
+The Streamlit app loads those records into a dataframe and runs the workflow from
+that structured source.
+
+This is intentionally designed so the local data layer can be replaced later by
+a production source such as BigQuery:
+
+```text
+sample_patients.json -> dataframe -> rule pipeline -> agent workflow
+
+Production equivalent:
+BigQuery table -> dataframe/API payload -> rule pipeline -> agent workflow
+```
+
+## Key Files
 
 | File | Purpose |
 |------|---------|
-| `streamlit_app.py` | Interactive demo UI |
-| `rule_pipeline.py` | Deterministic workflow logic |
-| `sample_patients.json` | Generated sample patient records loaded into a dataframe |
-| `triage_agent.py` ... `followup_agent.py` | ADK agent role definitions |
-
-The current demo uses generated local records for portability. In a production
-version, that same source-data layer could be replaced by a warehouse table such
-as BigQuery while keeping the rule-governed pipeline interface the same.
-
-The `Logic Tester` tab lets reviewers test new symptom wording and patient IDs.
-It prints the parameters, medication safety checks, model-style answer, and the
-actual deterministic rule trace, making it clear why a patient is Level 2, 3,
-or 4.
-
-### Why This Design
-
-Clinical workflows need guardrails. In this demo, LLM-style agents are not
-trusted with safety-critical decisions. Instead, the pipeline uses structured
-input and deterministic rules, then passes validated outputs between agent
-steps.
-
----
-
-## 📚 FILE STUDY ORDER
-
-Study the files in this order to understand the system from foundation to complete workflow:
-
-```
-PHASE 1: FOUNDATION (Building Blocks)
-├── 1. models/biogpt_wrapper.py    ← ML model integration
-└── 2. tools/clinical_tools.py     ← Tools agents can use
-
-PHASE 2: AGENTS (Learn Agent Patterns)
-├── 3. agents/triage_agent.py      ← First agent, simplest example
-├── 4. agents/diagnosis_agent.py   ← SEQUENTIAL pattern
-├── 5. agents/treatment_agent.py   ← Tool-heavy agent
-├── 6. agents/scheduling_agent.py  ← PARALLEL operations
-├── 7. agents/documentation_agent.py ← Data aggregation
-└── 8. agents/followup_agent.py    ← LOOP pattern
-
-PHASE 3: COORDINATION (Everything Together)
-├── 9. orchestrator.py             ← Master coordinator
-└── 10. demo.py                    ← Running the system
-```
-
----
-
-## 📁 FILE EXPLANATIONS
-
-### PHASE 1: FOUNDATION
-
-#### 1️⃣ `models/biogpt_wrapper.py`
-**Purpose:** Bridges your fine-tuned BioGPT with the agent system
-
-**Why Important:**
-- Encapsulates model complexity (loading, tokenization, generation)
-- Provides consistent `generate()` interface for all agents
-- Handles GPU/CPU device management
-- Includes `MockBioGPT` for testing without loading a real model
-
-**Key Classes:**
-```python
-BioGPTWrapper      # Real model wrapper
-MockBioGPT         # For testing
-create_biogpt_wrapper(use_mock=True)  # Factory function
-```
-
----
-
-#### 2️⃣ `tools/clinical_tools.py`
-**Purpose:** Functions that agents can call to perform actions
-
-**Why Important:**
-- Tools extend agent capabilities beyond text generation
-- ADK reads function docstrings to understand tools
-- Each agent gets specific tools relevant to its role
-
-**Available Tools:**
-| Tool | Purpose |
-|------|---------|
-| `assess_symptoms()` | Analyze patient symptoms |
-| `lookup_patient()` | Get patient records |
-| `check_drug_interactions()` | Medication safety |
-| `schedule_appointment()` | Book appointments |
-| `send_alert()` | Notify care team |
-| `generate_clinical_note()` | Create documentation |
-
----
-
-### PHASE 2: AGENTS
-
-#### 3️⃣ `agents/triage_agent.py`
-**Purpose:** Entry point - assesses urgency and routes patients
-
-**Pattern:** Basic ADK Agent
-
-**Why Important:**
-- Simplest agent to understand first
-- Shows ADK Agent structure (instruction + tools)
-- Demonstrates decision making (urgency levels)
-
-**Key Concepts:**
-```python
-TRIAGE_INSTRUCTION = "..."  # System prompt
-create_triage_agent()       # Factory function
-check_red_flags()           # Quick safety check
-format_triage_result()      # Structured output
-```
-
----
-
-#### 4️⃣ `agents/diagnosis_agent.py`
-**Purpose:** Analyzes symptoms and generates differential diagnosis
-
-**Pattern:** 🔄 SEQUENTIAL (receives Triage output)
-
-**Why Important:**
-- Shows how agents receive data from previous agents
-- Demonstrates multi-step reasoning
-- Integrates BioGPT for medical reasoning
-
-**Key Concepts:**
-```python
-build_clinical_picture(triage_result, patient_data)
-# ↑ Combines previous agent output with new data
-```
-
----
-
-#### 5️⃣ `agents/treatment_agent.py`
-**Purpose:** Creates treatment plans with safety validation
-
-**Pattern:** Tool-Heavy with Safety Gate
-
-**Why Important:**
-- Shows heavy tool usage (drug checks, patient lookup)
-- Demonstrates validation pattern (pre/post checks)
-- Safety can BLOCK workflow if issues found
-
-**Key Concepts:**
-```python
-run_safety_checks()  # CRITICAL - must pass before treatment
-# If fails → status: "safety_hold" → requires physician review
-```
-
----
-
-#### 6️⃣ `agents/scheduling_agent.py`
-**Purpose:** Coordinates appointments and resources
-
-**Pattern:** ⚡ PARALLEL (runs with Documentation)
-
-**Why Important:**
-- Runs at SAME TIME as Documentation agent
-- Shows retry logic for unavailable slots
-- Demonstrates external system integration
-
-**Key Concepts:**
-```python
-# In orchestrator:
-await asyncio.gather(
-    run_documentation(...),
-    run_scheduling(...)     # ← PARALLEL!
-)
-```
-
----
-
-#### 7️⃣ `agents/documentation_agent.py`
-**Purpose:** Generates clinical notes (SOAP, Progress, etc.)
-
-**Pattern:** Data Aggregation
-
-**Why Important:**
-- Pulls data from ALL previous agents
-- Shows template-based generation
-- Multiple output formats
-
-**Key Concepts:**
-```python
-aggregate_clinical_data(triage, diagnosis, treatment)
-# ↑ Combines everything into one clinical picture
-generate_soap_note(aggregated_data)
-# ↑ Structured documentation output
-```
-
----
-
-#### 8️⃣ `agents/followup_agent.py`
-**Purpose:** Continuous patient monitoring
-
-**Pattern:** 🔁 LOOP (runs repeatedly)
-
-**Why Important:**
-- Maintains state across monitoring cycles
-- Generates alerts when thresholds exceeded
-- Re-engages patients who miss appointments
-
-**Key Concepts:**
-```python
-class MonitoringState:
-    # Tracks all patients being monitored
-    
-def run_monitoring_check(patient_id):
-    # One iteration of the loop:
-    # 1. Check status
-    # 2. Generate alerts if needed
-    # 3. Schedule next check
-    # 4. REPEAT when due
-```
-
----
-
-### PHASE 3: COORDINATION
-
-#### 9️⃣ `orchestrator.py`
-**Purpose:** Master coordinator - ties everything together
-
-**Pattern:** All patterns combined
-
-**Why Important:**
-- Creates and manages all agents
-- Implements workflow execution
-- Uses ADK Runner for agent execution
-- Provides observability (status, history)
-
-**Key Concepts:**
-```python
-class ClinicalCareOrchestrator:
-    def __init__(self):
-        self.agents = {...}   # All 6 agents
-        self.runners = {...}  # ADK runners
-        self.biogpt = ...     # Your model
-        
-    async def run_full_workflow(patient_data):
-        # SEQUENTIAL
-        triage → diagnosis → treatment
-        
-        # PARALLEL
-        documentation + scheduling (together)
-        
-        # LOOP INIT
-        followup monitoring setup
-```
-
----
-
-#### 🔟 `demo.py`
-**Purpose:** Shows how to run the system
-
-**Usage:**
-```bash
-python demo.py                    # Full demo with mock BioGPT
-python demo.py --biogpt-path ...  # With your real model
-python demo.py --triage-only      # Quick triage test
-python demo.py --show-patterns    # Explain patterns
-```
-
----
-
-## 🔄 THE THREE PATTERNS
-
-### 1. SEQUENTIAL Pattern
-```
-Agent A → Agent B → Agent C
-   │          │         │
-   └── Output flows forward
-```
-**Example:** Triage → Diagnosis → Treatment
-
-### 2. PARALLEL Pattern
-```
-              ┌─→ Agent A ─┐
-Input Data ──┤            ├──→ Combined Results
-              └─→ Agent B ─┘
-```
-**Example:** Documentation + Scheduling run together
-
-### 3. LOOP Pattern
-```
-       ┌──────────────────────┐
-       │                      │
-       ▼                      │
-[Check Patients] → [Alerts?] → [Wait] ──┘
-```
-**Example:** Follow-up monitoring cycles
-
----
-
-## 🚀 QUICK START
-
-```python
-from orchestrator import create_orchestrator
-
-# Create system
-orchestrator = create_orchestrator(use_mock_biogpt=True)
-
-# Run workflow
-patient = {
-    "patient_id": "P001",
-    "symptoms": "headache, fever",
-    "age": 35
-}
-result = await orchestrator.run_full_workflow(patient)
-```
-
----
-
-## 📋 CAPSTONE REQUIREMENTS CHECKLIST
-
-| Requirement | Where Demonstrated |
-|-------------|-------------------|
-| ✅ Multi-agent framework | All 6 agents |
-| ✅ Sequential agents | Triage → Diagnosis → Treatment |
-| ✅ Parallel agents | Documentation + Scheduling |
-| ✅ Loop agents | Follow-up monitoring |
-| ✅ Custom tools | `clinical_tools.py` |
-| ✅ Google Search tool | Added to agents |
-| ✅ Custom ML model | BioGPT integration |
-| ✅ Sessions | ADK InMemoryRunner |
-| ✅ Memory management | Monitoring state |
-| ✅ Observability | Orchestrator status/history |
-
----
-
-## 📖 LEARNING GUIDE
-
-For detailed explanations with code examples, see:
-**`LEARNING_GUIDE.ipynb`**
+| `streamlit_app.py` | Portfolio demo UI |
+| `rule_pipeline.py` | Rule-governed workflow, triage logic, safety checks, and explainability helpers |
+| `sample_patients.json` | Generated sample patient records |
+| `triage_agent.py` | ADK triage agent role definition |
+| `diagnosis_agent.py` | ADK diagnosis agent role definition |
+| `treatment_agent.py` | ADK treatment planning agent role definition |
+| `documentation_agent.py` | ADK documentation agent role definition |
+| `scheduling_agent.py` | ADK scheduling agent role definition |
+| `followup_agent.py` | ADK follow-up monitoring agent role definition |
+| `clinical_tools.py` | Mock clinical tools for assessment, patient lookup, interactions, scheduling, alerts, and notes |
+| `biogpt_wrapper.py` | BioGPT/mock BioGPT integration layer |
+| `demo.py` | CLI demo entrypoint |
+
+## Example Rule Logic
+
+Triage starts at Level 4 unless a rule raises urgency.
+
+Examples:
+
+- chest pain + shortness of breath -> Level 1
+- fever + neck stiffness -> Level 2
+- single cardiopulmonary red flag -> Level 2
+- persistent vomiting -> Level 3
+- no urgent rule match -> Level 4
+
+Medication safety checks compare proposed medications against:
+
+- known allergies
+- current medications
+- known interaction pairs
+
+If a blocker is found, the workflow returns `safety_review_required`.
+
+## Current Scope
+
+This is a portfolio prototype, not a clinical product. It uses generated data
+and mock clinical tools. Diagnosis and treatment outputs are marked as drafts
+requiring clinician review.
+
+The purpose is to demonstrate:
+
+- multi-agent workflow design
+- structured handoffs between agents
+- deterministic guardrails for safety-critical decisions
+- explainable triage and medication safety logic
+- a non-technical demo UI for reviewing the system behavior
