@@ -255,33 +255,30 @@ def main() -> None:
     examples = load_examples()
     labels = [case["label"] for case in examples]
 
-    with st.sidebar:
-        st.header("Demo Case")
+    st.markdown(
+        """
+        <div class="hero">
+            <h1>Clinical Care ADK Workflow</h1>
+            <p>Rule-governed multi-agent coordination: triage, diagnosis draft, treatment safety, documentation, scheduling, and follow-up.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        st.markdown("### Patient Scenario & Intake")
         selected_label = st.selectbox("Patient scenario", labels)
         selected_case = without_label(next(case for case in examples if case["label"] == selected_label))
         key = selected_case["patient_id"]
 
-        st.caption("Fields reset when you change the selected scenario.")
-        patient_id = st.text_input("Patient ID", selected_case["patient_id"], key=f"patient_id_{key}")
-        name = st.text_input("Name", selected_case["name"], key=f"name_{key}")
-        symptoms = st.text_area("Presenting symptoms", selected_case["symptoms"], height=105, key=f"symptoms_{key}")
-        duration_days = st.number_input(
-            "Duration in days",
-            min_value=0,
-            max_value=365,
-            value=int(selected_case["duration_days"]),
-            key=f"duration_{key}",
-        )
-        pain_score = st.slider(
-            "Pain score",
-            min_value=0,
-            max_value=10,
-            value=int(selected_case["pain_score"]),
-            key=f"pain_{key}",
-        )
-
-        with st.expander("Patient profile inputs", expanded=False):
+        row1 = st.columns([1, 1.2, 0.8, 0.8])
+        with row1[0]:
+            patient_id = st.text_input("Patient ID", selected_case["patient_id"], key=f"patient_id_{key}")
+        with row1[1]:
+            name = st.text_input("Name", selected_case["name"], key=f"name_{key}")
+        with row1[2]:
             age = st.number_input("Age", min_value=0, max_value=120, value=int(selected_case["age"]), key=f"age_{key}")
+        with row1[3]:
             gender_options = ["F", "M", "Other", "Not specified"]
             gender = st.selectbox(
                 "Gender",
@@ -289,47 +286,76 @@ def main() -> None:
                 index=gender_options.index(selected_case["gender"]) if selected_case["gender"] in gender_options else 3,
                 key=f"gender_{key}",
             )
+
+        symptoms = st.text_area("Presenting symptoms", selected_case["symptoms"], height=90, key=f"symptoms_{key}")
+
+        row2 = st.columns([0.8, 1.2, 1.2, 1.2])
+        with row2[0]:
+            duration_days = st.number_input(
+                "Duration in days",
+                min_value=0,
+                max_value=365,
+                value=int(selected_case["duration_days"]),
+                key=f"duration_{key}",
+            )
+        with row2[1]:
+            pain_score = st.slider(
+                "Pain score",
+                min_value=0,
+                max_value=10,
+                value=int(selected_case["pain_score"]),
+                key=f"pain_{key}",
+            )
+        with row2[2]:
             primary_care_provider = st.text_input(
                 "Primary care provider",
                 selected_case.get("primary_care_provider", "Unassigned"),
                 key=f"provider_{key}",
             )
-            preferred_language = st.text_input(
-                "Preferred language",
-                selected_case.get("preferred_language", "English"),
-                key=f"language_{key}",
-            )
+        with row2[3]:
             visit_type = st.text_input(
                 "Visit type",
                 selected_case.get("visit_type", "New concern"),
                 key=f"visit_type_{key}",
             )
 
-        with st.expander("Clinical context", expanded=False):
+        row3 = st.columns([1, 1, 1])
+        with row3[0]:
+            preferred_language = st.text_input(
+                "Preferred language",
+                selected_case.get("preferred_language", "English"),
+                key=f"language_{key}",
+            )
+        with row3[1]:
             medical_history = split_lines(
                 st.text_area(
                     "Medical history",
                     ", ".join(selected_case["medical_history"]),
-                    height=70,
+                    height=80,
                     key=f"history_{key}",
                 )
             )
+        with row3[2]:
             medications = split_lines(
                 st.text_area(
                     "Current medications",
                     ", ".join(selected_case["medications"]),
-                    height=70,
+                    height=80,
                     key=f"meds_{key}",
                 )
             )
+
+        row4 = st.columns([1, 2])
+        with row4[0]:
             allergies = split_lines(
                 st.text_area(
                     "Allergies",
                     ", ".join(selected_case["allergies"]),
-                    height=70,
+                    height=80,
                     key=f"allergies_{key}",
                 )
             )
+        with row4[1]:
             selected_flags = st.multiselect(
                 "Structured red flags",
                 options=list(FLAG_LABELS.keys()),
@@ -339,7 +365,8 @@ def main() -> None:
             )
 
         vitals_seed = selected_case.get("vitals", {})
-        with st.expander("Vitals", expanded=False):
+        row5 = st.columns(4)
+        with row5[0]:
             temperature_f = st.number_input(
                 "Temperature F",
                 min_value=90.0,
@@ -348,6 +375,7 @@ def main() -> None:
                 step=0.1,
                 key=f"temp_{key}",
             )
+        with row5[1]:
             heart_rate = st.number_input(
                 "Heart rate",
                 min_value=30,
@@ -355,11 +383,13 @@ def main() -> None:
                 value=int(vitals_seed.get("heart_rate", 76)),
                 key=f"hr_{key}",
             )
+        with row5[2]:
             blood_pressure = st.text_input(
                 "Blood pressure",
                 vitals_seed.get("blood_pressure", "120/80"),
                 key=f"bp_{key}",
             )
+        with row5[3]:
             oxygen_saturation = st.number_input(
                 "Oxygen saturation",
                 min_value=50,
@@ -404,16 +434,6 @@ def main() -> None:
     safety_tone = "ok" if treatment["safety_checks"]["passed"] else "danger"
     escalation_tone = "danger" if triage["escalation_required"] else "ok"
 
-    st.markdown(
-        """
-        <div class="hero">
-            <h1>Clinical Care ADK Workflow</h1>
-            <p>Rule-governed multi-agent coordination: triage, diagnosis draft, treatment safety, documentation, scheduling, and follow-up.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
     metric_cols = st.columns(4)
     cards = [
         metric_card("Workflow", result["status"].replace("_", " ").title(), status_tone),
@@ -436,6 +456,7 @@ def main() -> None:
                 profile_card(
                     "Demographics",
                     [
+                        ("Scenario", selected_label),
                         ("Patient", f"{patient['name']} ({patient['patient_id']})"),
                         ("Age / Gender", f"{patient['age']} / {patient['gender']}"),
                         ("Language", patient["preferred_language"]),
